@@ -632,13 +632,13 @@ m2_speed_women <- speedglm(event ~ isled_standard + country_cohort - 1,
           weights = naive_perswgt)
 
 # Model 3: Education + intercept by context + controls
-m3_speed_women <- speedglm(event ~ isled_standard + time + I(time^2) + male + in_union + enrol_mod + foreign_born + country_cohort - 1,
+m3_speed_women <- speedglm(event ~ isled_standard + time + I(time^2) + in_union + enrol_mod + foreign_born + country_cohort - 1,
           data = analysis_proper_women,
           family = binomial(link = "logit"),
           weights = naive_perswgt)
 
 # Model 4: Education × context + intercept by context + controls
-m4_speed_women <- speedglm(event ~ isled_standard:country_cohort + time + I(time^2) + male + in_union +  enrol_mod + foreign_born + country_cohort - 1,
+m4_speed_women <- speedglm(event ~ isled_standard:country_cohort + time + I(time^2) + in_union +  enrol_mod + foreign_born + country_cohort - 1,
           data = analysis_proper_women,
           family = binomial(link = "logit"),
           weights = naive_perswgt)
@@ -682,7 +682,7 @@ ames_provisional <-
 
 # write_csv(ames_provisional, file = paste0(data_path, "/intermediate_output/marginal_effects.csv"))
 
-modelling <- ames_provisional |> 
+modelling_women <- ames_provisional |> 
   separate(country_cohort, 
            into = c("country", "cohort"), 
            sep = "_", 
@@ -718,7 +718,7 @@ modelling <- ames_provisional |>
 ## Margins plot
 
 ```{r margins-plot}
-modelling <- modelling |> 
+modelling_women <- modelling_women |> 
   mutate(region = countrycode(country, "country.name", "region23"))  |>  
   mutate(region = case_when(
     country == "United Kingdom" ~ "Western Europe",
@@ -739,7 +739,7 @@ modelling <- modelling |>
     TRUE ~ region
   ))
 
-plots_by_region <- modelling |> 
+plots_by_region <- modelling_women |> 
   group_split(region) |>
   map(~ {
     region_name <- unique(.x$region)
@@ -784,7 +784,7 @@ macrovars <- c("std_relative_lfp", "std_educ_unemployment_advantage", "std_educ_
 
 # Initialize weight columns
 for (x in macrovars) {
-  modelling[[paste0("w_", x)]] <- NA_real_
+  modelling_women[[paste0("w_", x)]] <- NA_real_
 }
 
 # Obtain meta-regression weights
@@ -796,12 +796,12 @@ for (x in macrovars) {
   cat(rep("-", 60), "\n", sep = "")
   
   # Create complete data (no NAs in key variables)
-  complete_data <- modelling  |> 
+  complete_data <- modelling_women  |> 
     filter(!is.na(rescaled_ame) & !is.na(rescaled_se) & !is.na(.data[[x]]))
   
-  n_excluded <- nrow(modelling) - nrow(complete_data)
+  n_excluded <- nrow(modelling_women) - nrow(complete_data)
   
-  cat("Total observations:", nrow(modelling), "\n")
+  cat("Total observations:", nrow(modelling_women), "\n")
   cat("Used in model:", nrow(complete_data), "\n")
   cat("Excluded (NAs):", n_excluded, "\n\n")
   
@@ -830,9 +830,9 @@ for (x in macrovars) {
       round(max(weights_rescaled), 4), "]\n\n")
   
   # Assign weights back to complete cases only
-  modelling[[paste0("w_", x)]][!is.na(modelling$rescaled_ame) & 
-                                !is.na(modelling$rescaled_se) & 
-                                !is.na(modelling[[x]])] <- weights_rescaled
+  modelling_women[[paste0("w_", x)]][!is.na(modelling_women$rescaled_ame) & 
+                                !is.na(modelling_women$rescaled_se) & 
+                                !is.na(modelling_women[[x]])] <- weights_rescaled
   
   cat("\n")
 }
@@ -843,10 +843,10 @@ cat("=== WEIGHT CALCULATION COMPLETE ===\n\n")
 cat("Weight coverage summary:\n")
 for (x in macrovars) {
   w_col <- paste0("w_", x)
-  n_nonmissing <- sum(!is.na(modelling[[w_col]]))
+  n_nonmissing <- sum(!is.na(modelling_women[[w_col]]))
   cat(sprintf("  %-40s: %3d/%3d obs (%.1f%%)\n", 
-              w_col, n_nonmissing, nrow(modelling), 
-              100 * n_nonmissing / nrow(modelling)))
+              w_col, n_nonmissing, nrow(modelling_women), 
+              100 * n_nonmissing / nrow(modelling_women)))
 }
 
 for (x in macrovars) {
@@ -855,29 +855,29 @@ for (x in macrovars) {
   cov_var <- paste0("cov_", x)
   
   # Rescale coverage to average = 1
-  cov_rescaled <- modelling[[cov_var]] / mean(modelling[[cov_var]], na.rm = TRUE)
+  cov_rescaled <- modelling_women[[cov_var]] / mean(modelling_women[[cov_var]], na.rm = TRUE)
   
   # Combine meta-regression and coverage weights
-  modelling[[paste0("w_final_", x)]] <- modelling[[paste0("w_", x)]] * cov_rescaled
+  modelling_women[[paste0("w_final_", x)]] <- modelling_women[[paste0("w_", x)]] * cov_rescaled
 }
 ```
 
 #### Metaregression itself
 
 ```{r weighted-meta-regression}
-m_relative_lfp <- lm(rescaled_ame ~ std_relative_lfp, weights = w_final_std_relative_lfp ,data = modelling)
+m_relative_lfp <- lm(rescaled_ame ~ std_relative_lfp, weights = w_final_std_relative_lfp ,data = modelling_women)
 
 # going up on this scale means disadvantage to education
-m_unemployment_adv <- lm(rescaled_ame ~ std_educ_unemployment_advantage, weights = w_final_std_educ_unemployment_advantage ,data = modelling)
+m_unemployment_adv <- lm(rescaled_ame ~ std_educ_unemployment_advantage, weights = w_final_std_educ_unemployment_advantage ,data = modelling_women)
 
 # going up on this scale means theres more advantage to education
-m_earnings_adv <- lm(rescaled_ame ~ std_educ_earnings_advantage, weights = w_final_std_educ_earnings_advantage ,data = modelling)
+m_earnings_adv <- lm(rescaled_ame ~ std_educ_earnings_advantage, weights = w_final_std_educ_earnings_advantage ,data = modelling_women)
 
 # higher is more traditional
-m_family_diversity_acceptance <- lm(rescaled_ame ~ family_diversity_acceptance, weights = w_final_family_diversity_acceptance,data = modelling)
+m_family_diversity_acceptance <- lm(rescaled_ame ~ family_diversity_acceptance, weights = w_final_family_diversity_acceptance,data = modelling_women)
 
 # higher is more egalitarian
-m_gender_roles <-  lm(rescaled_ame ~ gender_roles, weights = w_final_gender_roles,data = modelling)
+m_gender_roles <-  lm(rescaled_ame ~ gender_roles, weights = w_final_gender_roles,data = modelling_women)
 ```
 
 #### Output table
@@ -895,7 +895,7 @@ models <- list(
 # Extract coefficients, R², and sample size
 presentation_table <- map_df(names(models), function(name) {
   model <- models[[name]]
-  coef_info <- tidy(model) %>% filter(term != "(Intercept)")
+  coef_info <- tidy(model) |> filter(term != "(Intercept)")
   r2 <- glance(model)$r.squared
   n_contexts <- nobs(model)
   
@@ -922,29 +922,29 @@ presentation_table <- map_df(names(models), function(name) {
 })
 
 # Calculate total contexts (assuming this is your total sample)
-total_contexts <- nrow(modelling)
+total_contexts <- nrow(modelling_women)
 
 # Add percentage column
-presentation_table <- presentation_table %>%
+presentation_table <- presentation_table |>
   mutate(`% of total` = paste0(round((`N contexts` / total_contexts) * 100, 1), "%"))
 
 # Create flextable
-ft <- flextable(presentation_table) %>%
+ft <- flextable(presentation_table) |>
   set_header_labels(
     ` ` = "",
     `Moderation effect` = "Moderation effect",
     `R²` = "R²",
     `N contexts` = "N contexts",
     `% of total` = "% of total"
-  ) %>%
-  align(j = 2:5, align = "right", part = "all") %>%
-  align(j = 1, align = "left", part = "all") %>%
-  font(fontname = "Times New Roman", part = "all") %>%
-  fontsize(size = 11, part = "all") %>%
-  bold(part = "header") %>%
-  add_footer_lines("Note: *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") %>%
-  align(align = "left", part = "footer") %>%
-  fontsize(size = 10, part = "footer") %>%
+  ) |>
+  align(j = 2:5, align = "right", part = "all") |>
+  align(j = 1, align = "left", part = "all") |>
+  font(fontname = "Times New Roman", part = "all") |>
+  fontsize(size = 11, part = "all") |>
+  bold(part = "header") |>
+  add_footer_lines("Note: *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") |>
+  align(align = "left", part = "footer") |>
+  fontsize(size = 10, part = "footer") |>
   autofit()
 
 # Export to Word
@@ -1028,13 +1028,13 @@ m2_speed <- speedglm(event ~ isled_standard + country_cohort - 1,
           weights = naive_perswgt)
 
 # Model 3: Education + intercept by context + controls
-m3_speed <- speedglm(event ~ isled_standard + time + I(time^2) + male + in_union + enrol_mod + foreign_born + country_cohort - 1,
+m3_speed <- speedglm(event ~ isled_standard + time + I(time^2)  + in_union + enrol_mod + foreign_born + country_cohort - 1,
           data = analysis_proper_men,
           family = binomial(link = "logit"),
           weights = naive_perswgt)
 
 # Model 4: Education × context + intercept by context + controls
-m4_speed <- speedglm(event ~ isled_standard:country_cohort + time + I(time^2) + male + in_union +  enrol_mod + foreign_born + country_cohort - 1,
+m4_speed <- speedglm(event ~ isled_standard:country_cohort + time + I(time^2)  + in_union +  enrol_mod + foreign_born + country_cohort - 1,
           data = analysis_proper_men,
           family = binomial(link = "logit"),
           weights = naive_perswgt)
@@ -1291,7 +1291,7 @@ models <- list(
 # Extract coefficients, R², and sample size
 presentation_table <- map_df(names(models), function(name) {
   model <- models[[name]]
-  coef_info <- tidy(model) %>% filter(term != "(Intercept)")
+  coef_info <- tidy(model) |> filter(term != "(Intercept)")
   r2 <- glance(model)$r.squared
   n_contexts <- nobs(model)
   
@@ -1321,39 +1321,111 @@ presentation_table <- map_df(names(models), function(name) {
 total_contexts <- nrow(modelling)
 
 # Add percentage column
-presentation_table <- presentation_table %>%
+presentation_table <- presentation_table |>
   mutate(`% of total` = paste0(round((`N contexts` / total_contexts) * 100, 1), "%"))
 
 # Create flextable
-ft <- flextable(presentation_table) %>%
+ft <- flextable(presentation_table) |>
   set_header_labels(
     ` ` = "",
     `Moderation effect` = "Moderation effect",
     `R²` = "R²",
     `N contexts` = "N contexts",
     `% of total` = "% of total"
-  ) %>%
-  align(j = 2:5, align = "right", part = "all") %>%
-  align(j = 1, align = "left", part = "all") %>%
-  font(fontname = "Times New Roman", part = "all") %>%
-  fontsize(size = 11, part = "all") %>%
-  bold(part = "header") %>%
-  add_footer_lines("Note: *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") %>%
-  align(align = "left", part = "footer") %>%
-  fontsize(size = 10, part = "footer") %>%
+  ) |>
+  align(j = 2:5, align = "right", part = "all") |>
+  align(j = 1, align = "left", part = "all") |>
+  font(fontname = "Times New Roman", part = "all") |>
+  fontsize(size = 11, part = "all") |>
+  bold(part = "header") |>
+  add_footer_lines("Note: *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") |>
+  align(align = "left", part = "footer") |>
+  fontsize(size = 10, part = "footer") |>
   autofit()
 
 # Export to Word
 save_as_docx(ft, path = paste0(output_tables, "/moderation_results_table_men.docx"))
 ```
 
-#### Supplementary table for macrovariable scores by context
+#### Table for model outputs:
 
-```{r macro-vars-by-context}
+```{r model-outputs-table}
+model_table_men <- 
+  map_dfr(
+    c("m1_speed", "m2_speed", "m3_speed"), 
+    ~ get(.x) |> tidy() |> mutate(loglik = round(as.numeric(logLik(get(.x))), 0)),
+    .id = "model") |> 
+  filter(term == "isled_standard") |> 
+  mutate(model = paste("Model", model),
+         estimate = round(estimate, 3),
+         std.error= round(std.error, 4),
+         p.value = case_when(
+           p.value < 0.001 ~ "***",
+           p.value < 0.01 ~ "**",
+           p.value < 0.05 ~ "*",
+           TRUE ~ ""
+         ),
+         general_intercept = if_else(model == "Model 1", "✓", ""),
+         context_specific_intercept = if_else(model != "Model 1", "✓", ""),
+         control_variables = if_else(model == "Model 3", "✓", ""),
+         n_country_cohort = n_distinct(analysis_proper_men$country_cohort),
+         n_union_years = nrow(analysis_proper_men)) |> 
+  relocate(loglik, .after = everything()) |>
+  relocate(p.value, .after = estimate) |> 
+  select(-statistic, -term)
+  
+model_table_women <- 
+  map_dfr(
+    c("m1_speed_women", "m2_speed_women", "m3_speed_women"), 
+    ~ get(.x) |> tidy() |> mutate(loglik = round(as.numeric(logLik(get(.x))), 0)),
+    .id = "model") |> 
+  filter(term == "isled_standard") |> 
+  mutate(model = paste("Model", model),
+         estimate = round(estimate, 3),
+         std.error= round(std.error, 4),
+         p.value = case_when(
+           p.value < 0.001 ~ "***",
+           p.value < 0.01 ~ "**",
+           p.value < 0.05 ~ "*",
+           TRUE ~ ""
+         ),
+         general_intercept = if_else(model == "Model 1", "✓", ""),
+         context_specific_intercept = if_else(model != "Model 1", "✓", ""),
+         control_variables = if_else(model == "Model 3", "✓", ""),
+         n_country_cohort = n_distinct(analysis_proper_women$country_cohort),
+         n_union_years = nrow(analysis_proper_women)) |> 
+  relocate(loglik, .after = everything()) |> 
+  relocate(p.value, .after = estimate) |> 
+  select(-statistic, -term)
 
+ft <- model_table_women |> 
+  mutate(across(everything(), as.character)) |>  
+  pivot_longer(cols = -model, names_to = "variable", values_to = "value") |> 
+  pivot_wider(names_from = model, values_from = value) |> 
+  flextable() |> 
+  add_footer_lines("Note: *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") |>
+  align(align = "left", part = "footer") |>
+  fontsize(size = 10, part = "footer") |>
+  autofit()
+
+save_as_docx(ft, path = paste0(output_tables, "/regression_table_women.docx"))
+
+ft <- model_table_men |> 
+  mutate(across(everything(), as.character)) |>  
+  pivot_longer(cols = -model, names_to = "variable", values_to = "value") |> 
+  pivot_wider(names_from = model, values_from = value) |> 
+  flextable() |> 
+  add_footer_lines("Note: *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") |> 
+  align(align = "left", part = "footer") |>
+  fontsize(size = 10, part = "footer") |>
+  autofit()
+
+save_as_docx(ft, path = paste0(output_tables, "/regression_table_men.docx"))
 ```
 
-#### Supplementary table for model output
+#### Supplementary full model outputs
+
+#### Supplementary table for macrovariable scores by context
 
 ```{r macro-vars-by-context}
 
