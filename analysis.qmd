@@ -555,12 +555,17 @@ save_as_docx(ft, path = paste0(output_tables, "/supplementary_context.docx"))
 
 # Female analysis
 
-# Male analysis
+Creating the female sample
+
+```{r}
+analysis_proper_women |> 
+  filter(male == 0)
+```
 
 ## Connecting macro-indicators to country-cohorts
 
 ```{r scoring-country-cohorts}
-macro_weighted <- analysis_proper |> 
+macro_weighted <- analysis_proper_women |> 
   group_by(country, country_cohort, obs_year) |> 
   
   # number of Rs observed each year
@@ -613,26 +618,26 @@ macro_weighted <- analysis_proper |>
 
 ```{r models-micro}
 # Model 1: Education + intercept
-m1_speed <- speedglm(event ~ isled_standard,
-          data = analysis_proper,
+m1_speed_women <- speedglm(event ~ isled_standard,
+          data = analysis_proper_women,
           family = binomial(link = "logit"),
           weights = naive_perswgt)
 
 # Model 2: Education + intercept by context (country-cohort)
-m2_speed <- speedglm(event ~ isled_standard + country_cohort - 1,
-          data = analysis_proper,
+m2_speed_women <- speedglm(event ~ isled_standard + country_cohort - 1,
+          data = analysis_proper_women,
           family = binomial(link = "logit"),
           weights = naive_perswgt)
 
 # Model 3: Education + intercept by context + controls
-m3_speed <- speedglm(event ~ isled_standard + time + I(time^2) + male + in_union + enrol_mod + foreign_born + country_cohort - 1,
-          data = analysis_proper,
+m3_speed_women <- speedglm(event ~ isled_standard + time + I(time^2) + male + in_union + enrol_mod + foreign_born + country_cohort - 1,
+          data = analysis_proper_women,
           family = binomial(link = "logit"),
           weights = naive_perswgt)
 
 # Model 4: Education × context + intercept by context + controls
-m4_speed <- speedglm(event ~ isled_standard:country_cohort + time + I(time^2) + male + in_union +  enrol_mod + foreign_born + country_cohort - 1,
-          data = analysis_proper,
+m4_speed_women <- speedglm(event ~ isled_standard:country_cohort + time + I(time^2) + male + in_union +  enrol_mod + foreign_born + country_cohort - 1,
+          data = analysis_proper_women,
           family = binomial(link = "logit"),
           weights = naive_perswgt)
 ```
@@ -643,14 +648,14 @@ m4_speed <- speedglm(event ~ isled_standard:country_cohort + time + I(time^2) + 
 # Calculating AMEs with just 20 percent of the sample (otherwise it takes ages)
 set.seed(48103)
 
-analysis_sample <- analysis_proper |> 
+analysis_sample <- analysis_proper_women |> 
   group_by(country_cohort) |> 
   slice_sample(prop = 0.2, weight_by = naive_perswgt, replace = FALSE) |> 
   ungroup()
 
 ames_provisional <- 
   slopes(
-    m4_speed,
+    m4_speed_women,
     variables = "isled_standard",
     by = "country_cohort",
     newdata = analysis_sample
@@ -660,7 +665,7 @@ ames_provisional <-
   
   # add baseline marriage rates
   left_join(
-    analysis_proper |> 
+    analysis_proper_women |> 
       group_by(country_cohort) |> 
       summarise(baseline_mar = weighted.mean(event, naive_perswgt, na.rm = TRUE)),
     by = "country_cohort"
@@ -684,7 +689,7 @@ modelling <- ames_provisional |>
   
   # add average marriage year by country-cohort
   left_join(
-    analysis_proper|>
+    analysis_proper_women|>
       group_by(respid) |>
       filter(row_number() == 1) |>
       ungroup() |> 
@@ -941,7 +946,403 @@ ft <- flextable(presentation_table) %>%
   autofit()
 
 # Export to Word
-save_as_docx(ft, path = paste0(output_tables, "/moderation_results_table.docx"))
+save_as_docx(ft, path = paste0(output_tables, "/moderation_results_table_women.docx"))
+```
+
+# Male analysis
+
+Creating the male sample
+
+```{r}
+analysis_proper_men |> 
+  filter(male == 1)
+```
+
+## Connecting macro-indicators to country-cohorts
+
+```{r scoring-country-cohorts}
+macro_weighted <- analysis_proper_men |> 
+  group_by(country, country_cohort, obs_year) |> 
+  
+  # number of Rs observed each year
+  summarise(
+    pweight = sum(naive_perswgt),
+    .groups = "drop"
+  ) |> 
+  
+  group_by(country_cohort) |> 
+  
+  # total years observed within each country-cohort
+  mutate(
+    totpweight = sum(pweight),
+    oweight = pweight/totpweight, # percentage of union_years observed in each period
+    cumweight = cumsum(oweight) # cumulative share of union_years observed
+  ) |> 
+  ungroup() |>
+  dplyr::select(-pweight, -totpweight) |>
+   
+  
+  # add the interpolated macrodata (onto each year)
+  left_join(macro_indicators_interpolated |> rename(obs_year = time), by = c("country", "obs_year")) |> 
+  
+  group_by(country_cohort) |>
+  
+  # share of union years covered by each time series (e. g. 65% of union years experienced when the time series ends, and 35% of union were experienced by the time it began so in total the time series covers 30% of all union years experienced in a country-cohort - that being it's weight in the calculation then)
+  mutate(
+    across(
+      .cols = where(is.numeric) & !any_of(c("obs_year", "oweight", "cumweight")),
+      .fns = ~if(all(is.na(.))) 0 else 
+              max(cumweight[!is.na(.)], na.rm = TRUE) - 
+              min(cumweight[!is.na(.)], na.rm = TRUE),
+      .names = "cov_{.col}"
+    )
+  ) |>
+  ungroup() |>
+  
+  # aggregating the macro-level indicators for each country-cohort, weighted mean (years experienced by more respondents count for more)
+  group_by(country, country_cohort) |>
+  summarise(
+    across(
+      where(is.numeric) & !c(oweight, cumweight),
+      ~if(startsWith(cur_column(), "cov_")) first(.) else weighted.mean(., oweight, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  )
+```
+
+## Modelling micro-level
+
+```{r models-micro}
+# Model 1: Education + intercept
+m1_speed <- speedglm(event ~ isled_standard,
+          data = analysis_proper_men,
+          family = binomial(link = "logit"),
+          weights = naive_perswgt)
+
+# Model 2: Education + intercept by context (country-cohort)
+m2_speed <- speedglm(event ~ isled_standard + country_cohort - 1,
+          data = analysis_proper_men,
+          family = binomial(link = "logit"),
+          weights = naive_perswgt)
+
+# Model 3: Education + intercept by context + controls
+m3_speed <- speedglm(event ~ isled_standard + time + I(time^2) + male + in_union + enrol_mod + foreign_born + country_cohort - 1,
+          data = analysis_proper_men,
+          family = binomial(link = "logit"),
+          weights = naive_perswgt)
+
+# Model 4: Education × context + intercept by context + controls
+m4_speed <- speedglm(event ~ isled_standard:country_cohort + time + I(time^2) + male + in_union +  enrol_mod + foreign_born + country_cohort - 1,
+          data = analysis_proper_men,
+          family = binomial(link = "logit"),
+          weights = naive_perswgt)
+```
+
+## AMEs
+
+```{r speed-AME}
+# Calculating AMEs with just 20 percent of the sample (otherwise it takes ages)
+set.seed(48103)
+
+analysis_sample <- analysis_proper_men |> 
+  group_by(country_cohort) |> 
+  slice_sample(prop = 0.2, weight_by = naive_perswgt, replace = FALSE) |> 
+  ungroup()
+
+ames_provisional <- 
+  slopes(
+    m4_speed,
+    variables = "isled_standard",
+    by = "country_cohort",
+    newdata = analysis_sample
+  ) |> 
+  tidy() |> 
+  rename(ame = estimate, se_ame = std.error) |> 
+  
+  # add baseline marriage rates
+  left_join(
+    analysis_proper_men |> 
+      group_by(country_cohort) |> 
+      summarise(baseline_mar = weighted.mean(event, naive_perswgt, na.rm = TRUE)),
+    by = "country_cohort"
+  ) |> 
+  
+  mutate(
+    rescaled_ame = (100 * ame) / baseline_mar,
+    rescaled_se = (100 * se_ame) / baseline_mar,
+    rescaled_conf.low = (100 * conf.low) / baseline_mar,
+    rescaled_conf.high = (100 * conf.high) / baseline_mar
+  ) 
+
+# write_csv(ames_provisional, file = paste0(data_path, "/intermediate_output/marginal_effects.csv"))
+
+modelling <- ames_provisional |> 
+  separate(country_cohort, 
+           into = c("country", "cohort"), 
+           sep = "_", 
+           remove = FALSE) |> 
+  select(country_cohort, country, cohort, starts_with("rescaled"), ame) |> 
+  
+  # add average marriage year by country-cohort
+  left_join(
+    analysis_proper_men|>
+      group_by(respid) |>
+      filter(row_number() == 1) |>
+      ungroup() |> 
+      group_by(country_cohort) |> 
+      summarise(avg_birth_cohort = weighted.mean(year, naive_perswgt, na.rm = TRUE)),
+    by = "country_cohort"
+  )  |> 
+  
+  # add macro-covariates
+  left_join(
+    macro_weighted |> 
+      select(
+        country_cohort,
+        gender_roles, cov_gender_roles,
+        family_diversity_acceptance, cov_family_diversity_acceptance,
+        std_educ_earnings_advantage, std_educ_unemployment_advantage, std_relative_lfp,
+        cov_std_educ_unemployment_advantage, cov_std_educ_earnings_advantage, cov_std_relative_lfp),
+    by = "country_cohort"
+  )
+  
+ 
+```
+
+## Margins plot
+
+```{r margins-plot}
+modelling <- modelling |> 
+  mutate(region = countrycode(country, "country.name", "region23"))  |>  
+  mutate(region = case_when(
+    country == "United Kingdom" ~ "Western Europe",
+    country == "United States" ~ "Western Europe",
+    country == "Canada" ~ "Western Europe",
+    country == "Estonia" ~ "Eastern Europe",
+    country == "Lithuania" ~ "Eastern Europe",
+    country == "Uruguay" ~ "Southern Europe",
+    country == "Croatia" ~ "Eastern Europe",
+    TRUE ~ region
+  )) |> 
+  mutate(region = case_when(
+    region == "Eastern Europe" ~ "Central and Eastern Europe",
+    region == "Western Europe" ~ "Western Europe and North America",
+    region == "Western Asia" ~ "Central and Eastern Europe",
+    region == "Central Asia" ~ "Central and Eastern Europe",
+    region == "Southern Europe" ~ "Southern Europe and South America",
+    TRUE ~ region
+  ))
+
+plots_by_region <- modelling |> 
+  group_split(region) |>
+  map(~ {
+    region_name <- unique(.x$region)
+    
+    ggplot(.x, aes(x = avg_birth_cohort, y = rescaled_ame)) +
+      geom_line() +
+      geom_point() +
+      geom_hline(yintercept = 0, linetype = "solid", color = "grey50", linewidth = 1, alpha = 0.2) +
+      scale_x_continuous(breaks = seq(1960, 2020, 10)) +
+      facet_wrap(vars(country)) +
+      labs(
+        title = region_name,
+        y = "Effect of education on marriage (pp)",
+        x = "Birth cohort (avg. year of 15th birthday in cohort)"
+      ) +
+      theme_bw() +
+      theme(panel.grid = element_blank())
+  })
+
+# Assign names based on the region (if not already named)
+if (is.null(names(plots_by_region))) {
+  names(plots_by_region) <- map_chr(plots_by_region, ~ unique(.x$data$region))
+}
+
+# Save each plot in the list
+# Alternative using imap
+imap(plots_by_region, ~ ggsave(
+  filename = paste0(output_plots, "/", gsub(" ", "_", .y), ".png"),
+  plot = .x,
+  width = 10,
+  height = 5.625,
+  dpi = 300
+))
+```
+
+## Meta-regression
+
+## Obtaining weights
+
+```{r meta-weights}
+macrovars <- c("std_relative_lfp", "std_educ_unemployment_advantage", "std_educ_earnings_advantage", "family_diversity_acceptance", "gender_roles")
+
+# Initialize weight columns
+for (x in macrovars) {
+  modelling[[paste0("w_", x)]] <- NA_real_
+}
+
+# Obtain meta-regression weights
+cat("\n=== META-REGRESSION WEIGHTS ESTIMATION ===\n\n")
+
+for (x in macrovars) {
+  
+  cat("Variable:", x, "\n")
+  cat(rep("-", 60), "\n", sep = "")
+  
+  # Create complete data (no NAs in key variables)
+  complete_data <- modelling  |> 
+    filter(!is.na(rescaled_ame) & !is.na(rescaled_se) & !is.na(.data[[x]]))
+  
+  n_excluded <- nrow(modelling) - nrow(complete_data)
+  
+  cat("Total observations:", nrow(modelling), "\n")
+  cat("Used in model:", nrow(complete_data), "\n")
+  cat("Excluded (NAs):", n_excluded, "\n\n")
+  
+  # Fit random-effects meta-regression with REML
+  meta_model <- rma(yi = rescaled_ame, 
+                    sei = rescaled_se, 
+                    mods = ~ get(x),
+                    data = complete_data,
+                    method = "REML",
+                    test = "knha")
+  
+  # Print model summary
+  cat("Model results:\n")
+  print(summary(meta_model))
+  cat("\n")
+  
+  # Extract meta-regression weights
+  weights_raw <- weights(meta_model)
+  
+  # Rescale to average = 1
+  weights_rescaled <- weights_raw / mean(weights_raw)
+  
+  cat("Weight summary:\n")
+  cat("  Mean:", round(mean(weights_rescaled), 4), "\n")
+  cat("  Range: [", round(min(weights_rescaled), 4), ",", 
+      round(max(weights_rescaled), 4), "]\n\n")
+  
+  # Assign weights back to complete cases only
+  modelling[[paste0("w_", x)]][!is.na(modelling$rescaled_ame) & 
+                                !is.na(modelling$rescaled_se) & 
+                                !is.na(modelling[[x]])] <- weights_rescaled
+  
+  cat("\n")
+}
+
+cat("=== WEIGHT CALCULATION COMPLETE ===\n\n")
+
+# Summary of weights
+cat("Weight coverage summary:\n")
+for (x in macrovars) {
+  w_col <- paste0("w_", x)
+  n_nonmissing <- sum(!is.na(modelling[[w_col]]))
+  cat(sprintf("  %-40s: %3d/%3d obs (%.1f%%)\n", 
+              w_col, n_nonmissing, nrow(modelling), 
+              100 * n_nonmissing / nrow(modelling)))
+}
+
+for (x in macrovars) {
+  
+  # Get coverage variable
+  cov_var <- paste0("cov_", x)
+  
+  # Rescale coverage to average = 1
+  cov_rescaled <- modelling[[cov_var]] / mean(modelling[[cov_var]], na.rm = TRUE)
+  
+  # Combine meta-regression and coverage weights
+  modelling[[paste0("w_final_", x)]] <- modelling[[paste0("w_", x)]] * cov_rescaled
+}
+```
+
+#### Metaregression itself
+
+```{r weighted-meta-regression}
+m_relative_lfp <- lm(rescaled_ame ~ std_relative_lfp, weights = w_final_std_relative_lfp ,data = modelling)
+
+# going up on this scale means disadvantage to education
+m_unemployment_adv <- lm(rescaled_ame ~ std_educ_unemployment_advantage, weights = w_final_std_educ_unemployment_advantage ,data = modelling)
+
+# going up on this scale means theres more advantage to education
+m_earnings_adv <- lm(rescaled_ame ~ std_educ_earnings_advantage, weights = w_final_std_educ_earnings_advantage ,data = modelling)
+
+# higher is more traditional
+m_family_diversity_acceptance <- lm(rescaled_ame ~ family_diversity_acceptance, weights = w_final_family_diversity_acceptance,data = modelling)
+
+# higher is more egalitarian
+m_gender_roles <-  lm(rescaled_ame ~ gender_roles, weights = w_final_gender_roles,data = modelling)
+```
+
+#### Output table
+
+```{r metareg-output}
+# List of models with descriptive names
+models <- list(
+  "Relative labor force participation" = m_relative_lfp,
+  "Unemployment advantage" = m_unemployment_adv,
+  "Earnings advantage" = m_earnings_adv,
+  "Family diversity acceptance" = m_family_diversity_acceptance,
+  "Gender roles" = m_gender_roles
+)
+
+# Extract coefficients, R², and sample size
+presentation_table <- map_df(names(models), function(name) {
+  model <- models[[name]]
+  coef_info <- tidy(model) %>% filter(term != "(Intercept)")
+  r2 <- glance(model)$r.squared
+  n_contexts <- nobs(model)
+  
+  # Format coefficient with significance stars and SE
+  stars <- case_when(
+    coef_info$p.value < 0.001 ~ "***",
+    coef_info$p.value < 0.01 ~ "**",
+    coef_info$p.value < 0.05 ~ "*",
+    TRUE ~ ""
+  )
+  
+  moderation_effect <- paste0(
+    format(round(coef_info$estimate, 1), nsmall = 1),
+    stars,
+    " (", format(round(coef_info$std.error, 1), nsmall = 1), ")"
+  )
+  
+  tibble(
+    ` ` = name,
+    `Moderation effect` = moderation_effect,
+    `R²` = format(round(r2, 2), nsmall = 2),
+    `N contexts` = n_contexts
+  )
+})
+
+# Calculate total contexts (assuming this is your total sample)
+total_contexts <- nrow(modelling)
+
+# Add percentage column
+presentation_table <- presentation_table %>%
+  mutate(`% of total` = paste0(round((`N contexts` / total_contexts) * 100, 1), "%"))
+
+# Create flextable
+ft <- flextable(presentation_table) %>%
+  set_header_labels(
+    ` ` = "",
+    `Moderation effect` = "Moderation effect",
+    `R²` = "R²",
+    `N contexts` = "N contexts",
+    `% of total` = "% of total"
+  ) %>%
+  align(j = 2:5, align = "right", part = "all") %>%
+  align(j = 1, align = "left", part = "all") %>%
+  font(fontname = "Times New Roman", part = "all") %>%
+  fontsize(size = 11, part = "all") %>%
+  bold(part = "header") %>%
+  add_footer_lines("Note: *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") %>%
+  align(align = "left", part = "footer") %>%
+  fontsize(size = 10, part = "footer") %>%
+  autofit()
+
+# Export to Word
+save_as_docx(ft, path = paste0(output_tables, "/moderation_results_table_men.docx"))
 ```
 
 #### Supplementary table for macrovariable scores by context
