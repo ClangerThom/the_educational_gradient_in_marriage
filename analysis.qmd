@@ -519,7 +519,9 @@ table_context <- analysis_proper |>
   mutate(
     Total = `Not married` + Married,
     Prop_married = Married/Total
-  )
+  ) |> 
+  mutate(
+    Prop_married = as.double(format(round(Prop_married, 2), nsmall = 2, big.mark = ",")))
   
 table_context <- table_context |> 
   bind_rows(
@@ -558,7 +560,7 @@ save_as_docx(ft, path = paste0(output_tables, "/supplementary_context.docx"))
 Creating the female sample
 
 ```{r}
-analysis_proper_women |> 
+analysis_proper_women <- analysis_proper |> 
   filter(male == 0)
 ```
 
@@ -954,7 +956,7 @@ save_as_docx(ft, path = paste0(output_tables, "/moderation_results_table_women.d
 Creating the male sample
 
 ```{r}
-analysis_proper_men |> 
+analysis_proper_men <- analysis_proper |> 
   filter(male == 1)
 ```
 
