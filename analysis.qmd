@@ -648,7 +648,7 @@ m4_speed_women <- speedglm(event ~ isled_standard:country_cohort + time + I(time
 
 ```{r speed-AME}
 # Calculating AMEs with just 20 percent of the sample (otherwise it takes ages)
-set.seed(48103)
+set.seed(3213145)
 
 analysis_sample <- analysis_proper_women |> 
   group_by(country_cohort) |> 
@@ -767,7 +767,7 @@ if (is.null(names(plots_by_region))) {
 # Save each plot in the list
 # Alternative using imap
 imap(plots_by_region, ~ ggsave(
-  filename = paste0(output_plots, "/", gsub(" ", "_", .y), ".png"),
+  filename = paste0(output_plots, "/", gsub(" ", "_", .y), "_female", ".png"),
   plot = .x,
   width = 10,
   height = 5.625,
@@ -1423,10 +1423,98 @@ ft <- model_table_men |>
 save_as_docx(ft, path = paste0(output_tables, "/regression_table_men.docx"))
 ```
 
-#### Supplementary full model outputs
-
 #### Supplementary table for macrovariable scores by context
 
-```{r macro-vars-by-context}
+```{r context-score-weight}
+# men's table, adding women's later
+supplementary_table_scores <- modelling |> 
+  select(country,
+         cohort,
+         gender_roles,
+         w_final_gender_roles,
+         family_diversity_acceptance,
+         w_final_family_diversity_acceptance,
+         std_relative_lfp,
+         w_final_std_relative_lfp,
+         std_educ_earnings_advantage,
+         w_final_std_educ_earnings_advantage,
+         std_educ_unemployment_advantage,
+         w_final_std_educ_unemployment_advantage) |> 
+  mutate(across(starts_with("w_final_"), ~ round(.x, 2))) |> 
+  mutate(across(starts_with("w_final_"), ~ paste0("(", .x, ")"))) |> 
+  rename_with(~str_replace(., "^w_final_", "weight_"), starts_with("w_final_"))
+  
+ft <- flextable(supplementary_table_scores) |>
+  set_header_labels(
+    country = "Context",
+    cohort = "",
+    `gender_roles` = "Gender Roles",
+    `family_diversity_acceptance` = "Family Diversity Acceptance",
+    std_relative_lfp = "Female labour force",
+    std_educ_earnings_advantage = "Earnings advantage",
+    std_educ_unemployment_advantage = "Unemployment advantage"
+  ) |> 
+  set_header_labels(
+    values = setNames(
+      rep("Weight", sum(grepl("^weight_", names(supplementary_table_scores)))),
+      names(supplementary_table_scores)[grepl("^weight_", names(supplementary_table_scores))]
+    )
+  ) |> 
+  fontsize(size = 6) |> 
+  fontsize(size = 6, part = "header") |> 
+  autofit()
+
+save_as_docx(ft, path = paste0(output_tables, "/supplementary_male_contexts.docx"), 
+             pr_section = prop_section(
+                page_size = page_size(orient = "landscape")
+              ))
+
+# women's table
+supplementary_table_scores_women <- modelling |> 
+  select(country,
+         cohort,
+         gender_roles,
+         w_final_gender_roles,
+         family_diversity_acceptance,
+         w_final_family_diversity_acceptance,
+         std_relative_lfp,
+         w_final_std_relative_lfp,
+         std_educ_earnings_advantage,
+         w_final_std_educ_earnings_advantage,
+         std_educ_unemployment_advantage,
+         w_final_std_educ_unemployment_advantage) |> 
+  mutate(across(starts_with("w_final_"), ~ round(.x, 2))) |> 
+  mutate(across(starts_with("w_final_"), ~ paste0("(", .x, ")"))) |> 
+  rename_with(~str_replace(., "^w_final_", "weight_"), starts_with("w_final_"))
+  
+ft <- flextable(supplementary_table_scores_women) |>
+  set_header_labels(
+    country = "Context",
+    cohort = "",
+    `gender_roles` = "Gender Roles",
+    `family_diversity_acceptance` = "Family Diversity Acceptance",
+    std_relative_lfp = "Female labour force",
+    std_educ_earnings_advantage = "Earnings advantage",
+    std_educ_unemployment_advantage = "Unemployment advantage"
+  ) |> 
+  set_header_labels(
+    values = setNames(
+      rep("Weight", sum(grepl("^weight_", names(supplementary_table_scores_women)))),
+      names(supplementary_table_scores_women)[grepl("^weight_", names(supplementary_table_scores_women))]
+    )
+  ) |> 
+  fontsize(size = 6) |> 
+  fontsize(size = 6, part = "header") |> 
+  autofit()
+
+save_as_docx(ft, path = paste0(output_tables, "/supplementary_female_contexts.docx"), 
+             pr_section = prop_section(
+                page_size = page_size(orient = "landscape")
+              ))
+```
+
+#### Supplementary full model outputs
+
+```{r full-model-outputs}
 
 ```
