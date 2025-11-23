@@ -379,7 +379,7 @@ union_order <- micro_clean |>
   # keeps either observations with unions, or those that have a previous separation, or those where there are just 0 in respid
   ungroup()
 
-write.csv(union_order, file = paste0(data_path, "/intermediate_output/union_order.csv"))
+# write.csv(union_order, file = paste0(data_path, "/intermediate_output/union_order.csv"))
 
 person_union_year <- union_order |> 
   filter(in_union == 1) |> 
@@ -414,11 +414,17 @@ analysis <- analysis |>
 ## Countries to get rid of
 
 -   UK BHPS - patchy education measures, lots of missing information on union formation. There is now a GGS wave that's higher quality, it's worth getting rid of the headache. (UK round 1)
+-   All of Spain - unbalanced samples of mostly women
+-   USA NSFG 1995 - again just women
+-   Uruguay - out of scope of my theories
 
 ```{r finalise-for-analysis}
 analysis <- analysis |> 
   # Getting rid of countries I've decided to leave out
-  filter(!(country == "United Kingdom" & round == 1)) |> 
+  filter(!(country == "United Kingdom" & round == 1)) |>
+  filter(!(country == "Spain")) |> 
+  filter(!(country == "United States" & round == 1)) |> 
+  filter(!(country == "Uruguay" & round == 1)) |> 
   
   # Imputing age at finishing school by taking the median school leaving age in each country-isled combo
   group_by(country, isled) |> 
@@ -470,7 +476,7 @@ analysis_select <- analysis |>
     
     marriage_cohort = born_y + 15
   ) |> 
-  select(-sex, -native, -lhi02, -lhi01, -dem21, -inschool, -harmonised, -source_dataset, -...1, -...2, -edu_cou, -isced_7)
+  select(-sex, -native, -lhi02, -lhi01, -dem21, -inschool, -harmonised, -source_dataset, -edu_cou, -isced_7)
 
 # write.csv(analysis, file = paste0(data_path, "/intermediate_output/analysis.csv"))
 ```

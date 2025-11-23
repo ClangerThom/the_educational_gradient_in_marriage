@@ -4,16 +4,20 @@ format: html
 editor: visual
 ---
 
-# WARNING
+## Notes
 
-WHEN RERUNNING THE CODE, TEST THAT ALL PEOPLE WHO GOT MARRIED AFTER 40 AREN'T ALL BEING COUNTED AS MARRYING EXACTLY AT 40.
+Check whether the marriages at 40 are really people marrying at 40 and not everyone who ever married after 40 marrying at 40.
 
 ## Known Issues
 
--   Spain, Polish, and 1997 US additional data sets in the original data set are exclusively women
--   2nd spanish dataset also has overwhelming majority of women
-
 ## Solved
+
+Also removing Uruguay since it's out of scope of my theories
+
+Removed these countries from the dataset.
+
+-   Spain and 1997 US additional data sets in the original data set are exclusively women
+-   2nd Spanish dataset also has overwhelming majority of women
 
 Added a missing by design level to the Netherlands and Hungary
 
@@ -64,14 +68,7 @@ library(metafor)
 select <- dplyr::select
 ```
 
-```{r issue-button}
-# countries with missing ISLEDs
-analysis_select |> filter(is.na(isled)) |> group_by(country, round, isled) |> summarise(n = n_distinct(respid)) |> print(n=500)
-
-# countries with missing foreign_born
-analysis_select |> filter(is.na(foreign_born)) |> group_by(country, round, foreign_born) |> summarise(n = n_distinct(respid)) |> print(n=500)
-
-```
+## Table themes
 
 ## Preparation
 
@@ -121,7 +118,7 @@ analysis_weights <- analysis_weights |>
   arrange(country, round, respid) |> 
   mutate(naive_perswgt = if_else(is.na(perswgt), 1, perswgt))
 
-# write.csv(analysis_weights, file = paste0(data_path, "/intermediate_output/analysis_weights.csv"))
+write.csv(analysis_weights, file = paste0(data_path, "/intermediate_output/analysis_weights.csv"))
 ```
 
 ## Creation of country-cohorts and analytical sample
@@ -178,7 +175,7 @@ analysis_proper <- analysis_weights |>
     
     # Finland: combine all before 1991 into one group, and After 2000 with 1991-2000
     country == "Finland" & marriage_cohort_cat %in% c("Before 1951", "1951-1960", "1961-1970", "1971-1980", "1981-1990") ~ "Before 1991",
-    country == "Finland" & marriage_cohort_cat %in% c("1991-2000", "2001-2010", "After 2010") ~ "After 1990",
+    country == "Finland" & marriage_cohort_cat %in% c("2001-2010", "After 2010") ~ "After 2000",
     
     # France: combine all 1991 onwards
     country == "France" & marriage_cohort_cat %in% c("1991-2000", "2001-2010", "After 2010") ~ "After 1990",
@@ -248,64 +245,15 @@ analysis_proper <- analysis_weights |>
 Country cohorts in need of being joined up
 
 ```{r}
-analysis_proper |> group_by(country_cohort) |> count(event) |> filter(n<101)
+# Check women
+analysis_proper |> filter (male == 0) |>  group_by(country_cohort) |> count(event) |> filter(n<101)
+# Check men
+analysis_proper |> filter (male == 1) |>  group_by(country_cohort) |> count(event) |> filter(n<101)
 ```
 
 ## Add macrodata
 
 -   Please run the macrodata file now.
-
-## Connecting macro-indicators to country-cohorts
-
-```{r scoring-country-cohorts}
-macro_weighted <- analysis_proper |> 
-  group_by(country, country_cohort, obs_year) |> 
-  
-  # number of Rs observed each year
-  summarise(
-    pweight = sum(naive_perswgt),
-    .groups = "drop"
-  ) |> 
-  
-  group_by(country_cohort) |> 
-  
-  # total years observed within each country-cohort
-  mutate(
-    totpweight = sum(pweight),
-    oweight = pweight/totpweight, # percentage of union_years observed in each period
-    cumweight = cumsum(oweight) # cumulative share of union_years observed
-  ) |> 
-  ungroup() |>
-  dplyr::select(-pweight, -totpweight) |>
-   
-  
-  # add the interpolated macrodata (onto each year)
-  left_join(macro_indicators_interpolated |> rename(obs_year = time), by = c("country", "obs_year")) |> 
-  
-  group_by(country_cohort) |>
-  
-  # share of union years covered by each time series (e. g. 65% of union years experienced when the time series ends, and 35% of union were experienced by the time it began so in total the time series covers 30% of all union years experienced in a country-cohort - that being it's weight in the calculation then)
-  mutate(
-    across(
-      .cols = where(is.numeric) & !any_of(c("obs_year", "oweight", "cumweight")),
-      .fns = ~if(all(is.na(.))) 0 else 
-              max(cumweight[!is.na(.)], na.rm = TRUE) - 
-              min(cumweight[!is.na(.)], na.rm = TRUE),
-      .names = "cov_{.col}"
-    )
-  ) |>
-  ungroup() |>
-  
-  # aggregating the macro-level indicators for each country-cohort, weighted mean (years experienced by more respondents count for more)
-  group_by(country, country_cohort) |>
-  summarise(
-    across(
-      where(is.numeric) & !c(oweight, cumweight),
-      ~if(startsWith(cur_column(), "cov_")) first(.) else weighted.mean(., oweight, na.rm = TRUE)
-    ),
-    .groups = "drop"
-  )
-```
 
 ## Descriptives and supplementary information
 
@@ -415,6 +363,70 @@ ft <- flextable(desc_table) |>
 
 # Export to Word
 save_as_docx(ft, path = paste0(output_tables, "/descriptive_statistics_table.docx"))
+```
+
+#### Table of descriptives by country
+
+```{r descriptives-by-country-and-gender}
+desc_table_2 <- analysis_proper |> 
+  mutate(
+    country_interview_years = case_when(
+      min(year_s) == max(year_s) ~ paste0(country,"_", year_s),
+      TRUE ~ paste0(country,"_" ,min(year_s),"-", max(year_s))
+    ),
+    .by = c(country, round)
+    ) |> 
+  group_by(country_interview_years, round, male) |> 
+  summarise(median_age_marr = median(age_marr, na.rm = TRUE)) |>
+  ungroup() |>
+  mutate(
+    gender = if_else(male == 0, "Women", "Men"),
+  ) |>
+  separate(country_interview_years, 
+           into = c("country", "interview_years"), 
+           sep = "_", 
+           remove = TRUE) |> 
+  select(-male) |> 
+  pivot_wider(
+    id_cols = c(country, interview_years, round),
+    values_from = median_age_marr,
+    names_from = gender,
+    names_prefix = "median_age_marr_"
+  ) |> 
+  left_join(analysis_proper |> summarise(average_isled = mean(isled, na.rm = TRUE), .by = c(country, round)), by = join_by(country, round)) |> 
+  
+  left_join(analysis_proper |>
+              summarise(
+                n = n_distinct(respid),
+               .by = c(country, round, male)
+              ) |> 
+              mutate(
+                male = if_else(male == 0, "Women", "Men"),
+              ) |> 
+              pivot_wider(id_cols = c(country, round),
+                          names_from = male,
+                          values_from = n,
+                          names_prefix = "n_"),
+            by = join_by(country, round)) |> 
+  select(-round) |> 
+  relocate(interview_years, .after = everything()) |>
+  mutate(average_isled = as.double(format(round(average_isled, 2), nsmall = 2, big.mark = ","))) |> 
+  rename(Women = median_age_marr_Women,
+         Men = median_age_marr_Men,
+         `Average ISLED` = average_isled,
+         `N (women)` = n_Women,
+         `N (men)` = n_Men,
+         `Interview year(s)` = interview_years)
+
+ft <- flextable(desc_table_2) |> 
+  set_header_labels(country = "") |>
+  add_header_row(values = c("", "Median age of marriage", "", "", "", ""),
+                 colwidths = c(1, 2, 1, 1, 1, 1),
+                 top = FALSE) |> 
+  align(align = "center", part = "header") |>  
+  autofit()
+
+save_as_docx(ft, path = paste0(output_tables, "/survey_description.docx"))
 ```
 
 #### Kaplan-Meier Curve
@@ -539,6 +551,62 @@ ft <- flextable(table_context) |>
   autofit()
 
 save_as_docx(ft, path = paste0(output_tables, "/supplementary_context.docx"))
+```
+
+# Female analysis
+
+# Male analysis
+
+## Connecting macro-indicators to country-cohorts
+
+```{r scoring-country-cohorts}
+macro_weighted <- analysis_proper |> 
+  group_by(country, country_cohort, obs_year) |> 
+  
+  # number of Rs observed each year
+  summarise(
+    pweight = sum(naive_perswgt),
+    .groups = "drop"
+  ) |> 
+  
+  group_by(country_cohort) |> 
+  
+  # total years observed within each country-cohort
+  mutate(
+    totpweight = sum(pweight),
+    oweight = pweight/totpweight, # percentage of union_years observed in each period
+    cumweight = cumsum(oweight) # cumulative share of union_years observed
+  ) |> 
+  ungroup() |>
+  dplyr::select(-pweight, -totpweight) |>
+   
+  
+  # add the interpolated macrodata (onto each year)
+  left_join(macro_indicators_interpolated |> rename(obs_year = time), by = c("country", "obs_year")) |> 
+  
+  group_by(country_cohort) |>
+  
+  # share of union years covered by each time series (e. g. 65% of union years experienced when the time series ends, and 35% of union were experienced by the time it began so in total the time series covers 30% of all union years experienced in a country-cohort - that being it's weight in the calculation then)
+  mutate(
+    across(
+      .cols = where(is.numeric) & !any_of(c("obs_year", "oweight", "cumweight")),
+      .fns = ~if(all(is.na(.))) 0 else 
+              max(cumweight[!is.na(.)], na.rm = TRUE) - 
+              min(cumweight[!is.na(.)], na.rm = TRUE),
+      .names = "cov_{.col}"
+    )
+  ) |>
+  ungroup() |>
+  
+  # aggregating the macro-level indicators for each country-cohort, weighted mean (years experienced by more respondents count for more)
+  group_by(country, country_cohort) |>
+  summarise(
+    across(
+      where(is.numeric) & !c(oweight, cumweight),
+      ~if(startsWith(cur_column(), "cov_")) first(.) else weighted.mean(., oweight, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  )
 ```
 
 ## Modelling micro-level
