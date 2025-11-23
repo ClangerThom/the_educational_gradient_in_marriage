@@ -581,8 +581,8 @@ macro_weighted <- analysis_proper_women |>
   # total years observed within each country-cohort
   mutate(
     totpweight = sum(pweight),
-    oweight = pweight/totpweight, # percentage of union_years observed in each period
-    cumweight = cumsum(oweight) # cumulative share of union_years observed
+    oweight = pweight/totpweight, # percentage of person_years observed in each period
+    cumweight = cumsum(oweight) # cumulative share of person_years observed
   ) |> 
   ungroup() |>
   dplyr::select(-pweight, -totpweight) |>
@@ -942,7 +942,7 @@ ft <- flextable(presentation_table) |>
   font(fontname = "Times New Roman", part = "all") |>
   fontsize(size = 11, part = "all") |>
   bold(part = "header") |>
-  add_footer_lines("Note: *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") |>
+  add_footer_lines("Note: Results from a series of separate meta regressions of each explanatory variable. The unit of analysis was the country-cohort context. Contexts were weighted according to their coverage by each explanatory variable. *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") |>
   align(align = "left", part = "footer") |>
   fontsize(size = 10, part = "footer") |>
   autofit()
@@ -977,8 +977,8 @@ macro_weighted <- analysis_proper_men |>
   # total years observed within each country-cohort
   mutate(
     totpweight = sum(pweight),
-    oweight = pweight/totpweight, # percentage of union_years observed in each period
-    cumweight = cumsum(oweight) # cumulative share of union_years observed
+    oweight = pweight/totpweight, # percentage of person_years observed in each period
+    cumweight = cumsum(oweight) # cumulative share of person_years observed
   ) |> 
   ungroup() |>
   dplyr::select(-pweight, -totpweight) |>
@@ -1338,7 +1338,7 @@ ft <- flextable(presentation_table) |>
   font(fontname = "Times New Roman", part = "all") |>
   fontsize(size = 11, part = "all") |>
   bold(part = "header") |>
-  add_footer_lines("Note: *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") |>
+  add_footer_lines("Note: Results from a series of separate meta regressions of each explanatory variable. The unit of analysis was the country-cohort context. Contexts were weighted according to their coverage by each explanatory variable. *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") |>
   align(align = "left", part = "footer") |>
   fontsize(size = 10, part = "footer") |>
   autofit()
@@ -1369,7 +1369,7 @@ model_table_men <-
          context_specific_intercept = if_else(model != "Model 1", "✓", ""),
          control_variables = if_else(model == "Model 3", "✓", ""),
          n_country_cohort = n_distinct(analysis_proper_men$country_cohort),
-         n_union_years = nrow(analysis_proper_men)) |> 
+         n_person_years = nrow(analysis_proper_men)) |> 
   relocate(loglik, .after = everything()) |>
   relocate(p.value, .after = estimate) |> 
   select(-statistic, -term)
@@ -1393,7 +1393,7 @@ model_table_women <-
          context_specific_intercept = if_else(model != "Model 1", "✓", ""),
          control_variables = if_else(model == "Model 3", "✓", ""),
          n_country_cohort = n_distinct(analysis_proper_women$country_cohort),
-         n_union_years = nrow(analysis_proper_women)) |> 
+         n_person_years = nrow(analysis_proper_women)) |> 
   relocate(loglik, .after = everything()) |> 
   relocate(p.value, .after = estimate) |> 
   select(-statistic, -term)
@@ -1403,7 +1403,7 @@ ft <- model_table_women |>
   pivot_longer(cols = -model, names_to = "variable", values_to = "value") |> 
   pivot_wider(names_from = model, values_from = value) |> 
   flextable() |> 
-  add_footer_lines("Note: *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") |>
+  add_footer_lines("Note: Results from discrete-time event-history models of marriage entry. Control variables included age, its squared term, school enrolment, cohabitation, and migration background. *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") |>
   align(align = "left", part = "footer") |>
   fontsize(size = 10, part = "footer") |>
   autofit()
@@ -1415,7 +1415,7 @@ ft <- model_table_men |>
   pivot_longer(cols = -model, names_to = "variable", values_to = "value") |> 
   pivot_wider(names_from = model, values_from = value) |> 
   flextable() |> 
-  add_footer_lines("Note: *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") |> 
+  add_footer_lines("Note: Results from discrete-time event-history models of marriage entry. Control variables included age, its squared term, school enrolment, cohabitation, and migration background. *** p<0.001, ** p<0.01, * p<0.05. Standard errors in parentheses.") |> 
   align(align = "left", part = "footer") |>
   fontsize(size = 10, part = "footer") |>
   autofit()
