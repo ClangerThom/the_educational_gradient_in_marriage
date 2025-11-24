@@ -1518,3 +1518,62 @@ save_as_docx(ft, path = paste0(output_tables, "/supplementary_female_contexts.do
 ```{r full-model-outputs}
 
 ```
+
+#### Experimental graph - combining male and female outputs of the education effect
+
+```{r graph combining men and women}
+modelling_pooled <- modelling |> 
+  bind_rows(modelling_women, .id = "gender") |> 
+  mutate(gender = if_else(gender == "1", "Men", "Women")) |> 
+  mutate(
+    region = case_when(
+      region == "Northern Europe" ~ "Western and Northern Europe and North America",
+      region == "Western Europe and North America" ~ "Western and Northern Europe and North America",
+      region == "Southern Europe and South America" ~ "Central and Eastern Europe + Southern Europe and South America",
+      region == "Central and Eastern Europe" ~ "Central and Eastern Europe + Southern Europe and South America",
+      TRUE ~ region
+    )
+  )
+
+plots_by_region_pooled <- modelling_pooled |> 
+  group_split(region) |>
+  map(~ {
+    region_name <- unique(.x$region)
+    
+    ggplot(.x, aes(x = avg_birth_cohort, y = rescaled_ame, linetype = gender)) +
+      geom_line() +
+      geom_point() +
+      geom_hline(yintercept = 0, linetype = "solid", color = "grey50", linewidth = 1, alpha = 0.2) +
+      scale_x_continuous(breaks = seq(1960, 2020, 10)) +
+      facet_wrap(vars(country)) +
+      labs(
+        title = "",
+        y = "Effect of education on marriage (pp)",
+        x = "Marriage Year (avg. year of marriage in cohort)",
+        linetype = "Gender"
+      ) +
+      theme_bw() +
+      theme(panel.grid = element_blank(), legend.position = "bottom")
+  })
+
+# Assign names based on the region (if not already named)
+if (is.null(names(plots_by_region_pooled))) {
+  names(plots_by_region_pooled) <- map_chr(plots_by_region_pooled, ~ unique(.x$data$region))
+}
+
+# Save each plot in the list
+# Alternative using imap
+imap(plots_by_region_pooled, ~ ggsave(
+  filename = paste0(output_plots, "/", gsub(" ", "_", .y), "_pooled", ".png"),
+  plot = .x,
+  width = 10,
+  height = 5.625,
+  dpi = 300
+))
+```
+
+#### Experimental graph - graph of RA meta reg of female labour force particip.
+
+```{r female labour force participation graph}
+
+```

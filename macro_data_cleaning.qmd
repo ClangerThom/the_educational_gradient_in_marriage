@@ -59,7 +59,7 @@ lf_rate_ilo <- lf_rate_ilo_raw |>
     TRUE ~ country  # Keep all other values as they are
   )) |> 
   # pulling my countries
-  filter(country %in% unique(analysis_select$country)) |> 
+  filter(country %in% unique(analysis_weights$country)) |> 
   # pulling appropriate age band
   filter(classif1.label == "Age (Youth, adults): 15-64") |> 
   # filtering out total lfp
@@ -85,7 +85,7 @@ lf_rate_ilo_modeled <- lf_rate_ilo_modeled_raw |>
     TRUE ~ country  # Keep all other values as they are
   )) |>
   # pulling my countries
-  filter(country %in% unique(analysis_select$country)) |> 
+  filter(country %in% unique(analysis_weights$country)) |> 
   # pulling appropriate age band
   filter(classif1.label == "Age (Youth, adults): 15-64") |> 
   # filtering out total lfp
@@ -132,7 +132,7 @@ unemployment_educ <- unemployment_educ_raw |>
     TRUE ~ country  # Keep all other values as they are
   )) |> 
   # pulling my countries
-  filter(country %in% unique(analysis_select$country)) |> 
+  filter(country %in% unique(analysis_weights$country)) |> 
   select(country, indicator, sex, age, educ, time, obs_value, obs_status.label, source)
 
 unemployment_index <- unemployment_educ |> 
@@ -207,7 +207,7 @@ earnings_educ <- earnings_educ_raw |>
     TRUE ~ country  # Keep all other values as they are
   )) |> 
   # pulling my countries
-  filter(country %in% unique(analysis_select$country)) |> 
+  filter(country %in% unique(analysis_weights$country)) |> 
   select(country, indicator, sex, educ, currency, time, obs_value, source, note_indicator.label) |> 
   
   # just 2021 ppp $
@@ -405,7 +405,7 @@ gender_role_attitudes_raw <-
   ) |> 
   
   # filter for countries in my analysis
-  filter(country %in% unique(analysis_select$country))
+  filter(country %in% unique(analysis_weights$country))
 ```
 
 #### Family diversity acceptance
