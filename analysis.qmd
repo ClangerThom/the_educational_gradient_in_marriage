@@ -64,6 +64,10 @@ library(speedglm)
 # meta-regression
 library(metafor)
 
+# for visualisation
+library(patchwork)
+library(ggpmisc)
+
 # MAAS from speedglm messes with this
 select <- dplyr::select
 ```
@@ -1574,6 +1578,185 @@ imap(plots_by_region_pooled, ~ ggsave(
 
 #### Experimental graph - graph of RA meta reg of female labour force particip.
 
-```{r female labour force participation graph}
+```{r female mediation graphs}
+plot_covariates_labour_force <- 
+  modelling_women |> 
+  mutate(original = std_relative_lfp * sd(macro_indicators_interpolated$relative_lfp, na.rm = TRUE) + mean(macro_indicators_interpolated$relative_lfp, na.rm = TRUE)) |> 
+  filter(w_final_std_relative_lfp != 0) |>
+  ggplot(aes(x = original, y = rescaled_ame, weight = w_final_std_relative_lfp)) + 
+  geom_point(aes(size = w_final_std_relative_lfp), shape = 21, fill = NA, color = "black") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_hline(yintercept = 0, linetype = "solid", color = "grey50", linewidth = 1, alpha = 0.2) +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~")),
+               formula = y ~ x) +
+  labs(y = "",
+       x = "",
+       title = "Women") +
+  guides(size = "none") +
+  theme_bw()
 
+ggsave(
+  filename = paste0(output_plots, "/mediation/", "plot_covariates_labour_force",".png"),
+  plot = plot_covariates_labour_force,
+  width = 10,
+  height = 5.625,
+  dpi = 300
+)
+
+plot_covariates_gender <- 
+  modelling_women |> filter(w_final_gender_roles != 0) |> 
+  ggplot(aes(x = gender_roles, y = rescaled_ame, weight = w_final_gender_roles)) + 
+  geom_point(aes(size = w_final_gender_roles), shape = 21, fill = NA, color = "black") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_hline(yintercept = 0, linetype = "solid", color = "grey50", linewidth = 1, alpha = 0.2) +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~")),
+               formula = y ~ x) +
+  guides(size = "none") +
+  labs(y = "",
+       x = "",
+       title = "Women") +
+  theme_bw()
+
+ggsave(
+  filename = paste0(output_plots, "/mediation/", "plot_covariates_gender",".png"),
+  plot = plot_covariates_gender,
+  width = 10,
+  height = 5.625,
+  dpi = 300
+)
+
+plot_covariates_family_diversity <- 
+  modelling_women |>  filter(w_final_family_diversity_acceptance != 0) |> 
+  ggplot(aes(x = family_diversity_acceptance, y = rescaled_ame, weight = w_final_family_diversity_acceptance)) + 
+  geom_point(aes(size = w_final_family_diversity_acceptance), shape = 21, fill = NA, color = "black") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_hline(yintercept = 0, linetype = "solid", color = "grey50", linewidth = 1, alpha = 0.2) +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~")),
+               formula = y ~ x) +
+  guides(size = "none") +
+  labs(y = "",
+       x = "",
+       title = "Women") +
+  theme_bw()
+
+ggsave(
+  filename = paste0(output_plots, "/mediation/", "plot_covariates_family_diversity",".png"),
+  plot = plot_covariates_family_diversity,
+  width = 10,
+  height = 5.625,
+  dpi = 300
+)
+```
+
+```{r male mediation graphs}
+plot_covariates_labour_force_men <- 
+  modelling |> 
+  mutate(original = std_relative_lfp * sd(macro_indicators_interpolated$relative_lfp, na.rm = TRUE) + mean(macro_indicators_interpolated$relative_lfp, na.rm = TRUE)) |> 
+  filter(w_final_std_relative_lfp != 0) |>
+  ggplot(aes(x = original, y = rescaled_ame, weight = w_final_std_relative_lfp)) + 
+  geom_point(aes(size = w_final_std_relative_lfp), shape = 21, fill = NA, color = "black") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_hline(yintercept = 0, linetype = "solid", color = "grey50", linewidth = 1, alpha = 0.2) +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~")),
+               formula = y ~ x) +
+  labs(y = "Effect of education on marriage (pp)",
+       x = "",
+       title = "Men") +
+  guides(size = "none") +
+  theme_bw()
+
+ggsave(
+  filename = paste0(output_plots, "/mediation/", "plot_covariates_labour_force_men",".png"),
+  plot = plot_covariates_labour_force_men,
+  width = 10,
+  height = 5.625,
+  dpi = 300
+)
+
+plot_covariates_gender_men <- 
+  modelling |> filter(w_final_gender_roles != 0) |> 
+  ggplot(aes(x = gender_roles, y = rescaled_ame, weight = w_final_gender_roles)) + 
+  geom_point(aes(size = w_final_gender_roles), shape = 21, fill = NA, color = "black") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_hline(yintercept = 0, linetype = "solid", color = "grey50", linewidth = 1, alpha = 0.2) +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~")),
+               formula = y ~ x) +
+  labs(y = "Effect of education on marriage (pp)",
+       x = "",
+       title = "Men") +
+  guides(size = "none") +
+  theme_bw()
+
+ggsave(
+  filename = paste0(output_plots, "/mediation/", "plot_covariates_gender_men",".png"),
+  plot = plot_covariates_gender_men,
+  width = 10,
+  height = 5.625,
+  dpi = 300
+)
+
+plot_covariates_family_diversity_men <- 
+  modelling |>  filter(w_final_family_diversity_acceptance != 0) |> 
+  ggplot(aes(x = family_diversity_acceptance, y = rescaled_ame, weight = w_final_family_diversity_acceptance)) + 
+  geom_point(aes(size = w_final_family_diversity_acceptance), shape = 21, fill = NA, color = "black") + 
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_hline(yintercept = 0, linetype = "solid", color = "grey50", linewidth = 1, alpha = 0.2) +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~")),
+               formula = y ~ x) +
+  labs(y = "Effect of education on marriage (pp)",
+       x = "",
+       title = "Men") +
+  guides(size = "none") +
+  theme_bw()
+
+ggsave(
+  filename = paste0(output_plots, "/mediation/", "plot_covariates_family_diversity_men",".png"),
+  plot = plot_covariates_family_diversity_men,
+  width = 10,
+  height = 5.625,
+  dpi = 300
+)
+```
+
+#### Experimental side by side
+
+```{r}
+labour_plot <- 
+  plot_covariates_labour_force_men + plot_covariates_labour_force &
+  labs(x = "Ratio of men's and women's labour force participation rate") & 
+  coord_cartesian(ylim = c(-30, 70))
+
+ggsave(
+  filename = paste0(output_plots, "/mediation/", "labour_plot",".png"),
+  plot = labour_plot,
+  width = 10,
+  height = 5.625,
+  dpi = 300
+)
+
+family_diversity_plot <- 
+  plot_covariates_family_diversity_men + plot_covariates_family_diversity &
+  labs(x = "Family diversity acceptance") & 
+  coord_cartesian(ylim = c(-30, 70))
+
+ggsave(
+  filename = paste0(output_plots, "/mediation/", "family_diversity_plot",".png"),
+  plot = family_diversity_plot,
+  width = 10,
+  height = 5.625,
+  dpi = 300
+)
+
+gender_plot <- 
+  plot_covariates_gender_men + plot_covariates_gender &
+  labs(x = "Progressive gender role attitudes") & 
+  coord_cartesian(ylim = c(-30, 70))
+
+ggsave(
+  filename = paste0(output_plots, "/mediation/", "gender_plot",".png"),
+  plot = gender_plot,
+  width = 10,
+  height = 5.625,
+  dpi = 300
+)
 ```
