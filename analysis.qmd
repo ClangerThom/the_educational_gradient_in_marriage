@@ -122,7 +122,7 @@ analysis_weights <- analysis_weights |>
   arrange(country, round, respid) |> 
   mutate(naive_perswgt = if_else(is.na(perswgt), 1, perswgt))
 
-write.csv(analysis_weights, file = paste0(data_path, "/intermediate_output/analysis_weights.csv"))
+# write.csv(analysis_weights, file = paste0(data_path, "/intermediate_output/analysis_weights.csv"))
 ```
 
 ## Creation of country-cohorts and analytical sample
@@ -477,18 +477,24 @@ km_plot <- survfit2(Surv(time, event) ~ isled_cat, km_plotting_data, weights = n
     )
   ) |> 
   ggplot(aes(x = time, y = estimate, group = value, ymin = conf.low, ymax = conf.high)) +
-    geom_stepribbon(aes(color = value, fill = value)) +
-    geom_step(color = "grey") +
+    geom_stepribbon(alpha = 0.4) +
+    geom_step(aes(linetype = value), linewidth = 0.75) +
     scale_y_continuous(labels = scales::percent) +
-    scale_fill_discrete(breaks = c("High (>+0.5 SD)", "Medium (-0.5 to +0.5 SD)", "Low (<-0.5 SD)")) +
-    scale_color_discrete(breaks = c("High (>+0.5 SD)", "Medium (-0.5 to +0.5 SD)", "Low (<-0.5 SD)")) +
+    scale_linetype_manual(values = c("solid", "longdash", "dotted")) +
+    scale_linetype_discrete(breaks = c("High (>+0.5 SD)", "Medium (-0.5 to +0.5 SD)", "Low (<-0.5 SD)")) +
     labs(
-      color = "Educational attainment",
-      fill = "Educational attainment",
+      linetype = "Educational attainment",
       y = "Married (%)",
       x = "Age"
     ) + 
-    theme_bw()
+    theme_bw() +
+    theme(
+      legend.position = c(.95, 0.05),
+      legend.justification = c("right", "bottom"),
+      legend.box.just = "right",
+      legend.margin = margin(6, 6, 6, 6),
+      legend.box.background = element_rect(color="black", linewidth=1)
+    )
 
 ggsave(
   filename = paste0(output_plots, "/kaplan_meier.png"),
@@ -1444,6 +1450,11 @@ supplementary_table_scores <- modelling |>
          w_final_std_educ_earnings_advantage,
          std_educ_unemployment_advantage,
          w_final_std_educ_unemployment_advantage) |> 
+  mutate(gender_roles = round(gender_roles, 3),
+         family_diversity_acceptance = round(family_diversity_acceptance, 3),
+         std_relative_lfp = round(std_relative_lfp, 3),
+         std_educ_earnings_advantage = round(std_educ_earnings_advantage, 3),
+         std_educ_unemployment_advantage = round(std_educ_unemployment_advantage, 3)) |> 
   mutate(across(starts_with("w_final_"), ~ round(.x, 2))) |> 
   mutate(across(starts_with("w_final_"), ~ paste0("(", .x, ")"))) |> 
   rename_with(~str_replace(., "^w_final_", "weight_"), starts_with("w_final_"))
@@ -1464,14 +1475,19 @@ ft <- flextable(supplementary_table_scores) |>
       names(supplementary_table_scores)[grepl("^weight_", names(supplementary_table_scores))]
     )
   ) |> 
-  fontsize(size = 6) |> 
-  fontsize(size = 6, part = "header") |> 
-  autofit()
+  fontsize(size = 5) |> 
+  fontsize(size = 5, part = "header") |> 
+  width(j = ~ country, width = 0.4) |>
+  width(j = ~ cohort, width = 0.4) |>
+  width(j = ~ gender_roles + weight_gender_roles, width = 0.5) |>
+  width(j = ~ family_diversity_acceptance + weight_family_diversity_acceptance, width = 0.5) |>
+  width(j = ~ std_relative_lfp + weight_std_relative_lfp, width = 0.5) |>
+  width(j = ~ std_educ_earnings_advantage + weight_std_educ_earnings_advantage, width = 0.5) |>
+  width(j = ~ std_educ_unemployment_advantage + weight_std_educ_unemployment_advantage, width = 0.5) |>
+  padding(padding = 2, part = "all") |>
+  hrule(rule = "exact")
 
-save_as_docx(ft, path = paste0(output_tables, "/supplementary_male_contexts.docx"), 
-             pr_section = prop_section(
-                page_size = page_size(orient = "landscape")
-              ))
+save_as_docx(ft, path = paste0(output_tables, "/supplementary_male_contexts.docx"))
 
 # women's table
 supplementary_table_scores_women <- modelling |> 
@@ -1487,6 +1503,11 @@ supplementary_table_scores_women <- modelling |>
          w_final_std_educ_earnings_advantage,
          std_educ_unemployment_advantage,
          w_final_std_educ_unemployment_advantage) |> 
+  mutate(gender_roles = round(gender_roles, 3),
+         family_diversity_acceptance = round(family_diversity_acceptance, 3),
+         std_relative_lfp = round(std_relative_lfp, 3),
+         std_educ_earnings_advantage = round(std_educ_earnings_advantage, 3),
+         std_educ_unemployment_advantage = round(std_educ_unemployment_advantage, 3)) |> 
   mutate(across(starts_with("w_final_"), ~ round(.x, 2))) |> 
   mutate(across(starts_with("w_final_"), ~ paste0("(", .x, ")"))) |> 
   rename_with(~str_replace(., "^w_final_", "weight_"), starts_with("w_final_"))
@@ -1507,20 +1528,117 @@ ft <- flextable(supplementary_table_scores_women) |>
       names(supplementary_table_scores_women)[grepl("^weight_", names(supplementary_table_scores_women))]
     )
   ) |> 
-  fontsize(size = 6) |> 
-  fontsize(size = 6, part = "header") |> 
-  autofit()
+  fontsize(size = 5) |> 
+  fontsize(size = 5, part = "header") |> 
+  width(j = ~ country, width = 0.4) |>
+  width(j = ~ cohort, width = 0.4) |>
+  width(j = ~ gender_roles + weight_gender_roles, width = 0.5) |>
+  width(j = ~ family_diversity_acceptance + weight_family_diversity_acceptance, width = 0.5) |>
+  width(j = ~ std_relative_lfp + weight_std_relative_lfp, width = 0.5) |>
+  width(j = ~ std_educ_earnings_advantage + weight_std_educ_earnings_advantage, width = 0.5) |>
+  width(j = ~ std_educ_unemployment_advantage + weight_std_educ_unemployment_advantage, width = 0.5) |>
+  padding(padding = 2, part = "all") |>
+  hrule(rule = "exact")
 
-save_as_docx(ft, path = paste0(output_tables, "/supplementary_female_contexts.docx"), 
-             pr_section = prop_section(
-                page_size = page_size(orient = "landscape")
-              ))
+save_as_docx(ft, path = paste0(output_tables, "/supplementary_female_contexts.docx"))
 ```
 
 #### Supplementary full model outputs
 
 ```{r full-model-outputs}
+apa_table <- function(model1, model2 = NULL) {
+  # Use broom to tidy the model coefficients
+  tidy_model1 <- tidy(model1)
+  
+  # Add significance stars to beta
+  add_stars <- function(value, p) {
+    stars <- ifelse(p < .001, "***",
+              ifelse(p < .01, "**",
+              ifelse(p < .05, "*", "")))
+    return(paste0(sprintf("%.2f", value), stars))
+  }
+  
+  # Format the table for model 1
+  table_df <- data.frame(
+    Predictor = tidy_model1$term,
+    beta1 = sapply(1:nrow(tidy_model1), function(i) {
+      add_stars(tidy_model1$estimate[i], tidy_model1$p.value[i])
+    }),
+    se1 = sprintf("(%.2f)", tidy_model1$std.error)
+  )
+  
+  # Add model 2 if provided
+  if (!is.null(model2)) {
+    tidy_model2 <- tidy(model2)
+    
+    table_df$beta2 = sapply(1:nrow(tidy_model2), function(i) {
+      add_stars(tidy_model2$estimate[i], tidy_model2$p.value[i])
+    })
+    table_df$se2 = sprintf("(%.2f)", tidy_model2$std.error)
+  }
+  
+  # Reorder rows: country_cohort rows at the end
+  country_cohort_rows <- grep("^country_cohort", table_df$Predictor)
+  if (length(country_cohort_rows) > 0) {
+    other_rows <- setdiff(1:nrow(table_df), country_cohort_rows)
+    table_df <- table_df[c(other_rows, country_cohort_rows), ]
+  }
+  
+  # Get model fit statistics using broom::glance
+  model_stats1 <- glance(model1)
+  
+  # Create note with model statistics
+  if (!is.null(model2)) {
+    model_stats2 <- glance(model2)
+    note_text <- sprintf(
+      "Note. Model 1: N = %d. Model 2: N = %d. *p < .05. **p < .01. ***p < .001.",
+      model_stats1$nobs,
+      model_stats2$nobs
+    )
+  } else {
+    note_text <- sprintf(
+      "Note. N = %d. *p < .05. **p < .01. ***p < .001.",
+      model_stats1$nobs
+    )
+  }
+  
+  # Create flextable
+  ft <- flextable(table_df)
+  
+  # Set custom header labels
+  if (!is.null(model2)) {
+    ft <- set_header_labels(ft, 
+                           Predictor = "Predictor",
+                           beta1 = "β", 
+                           se1 = "SE",
+                           beta2 = "β",
+                           se2 = "SE")
+    
+    # Add header row with Men/Women labels
+    ft <- add_header_row(ft, 
+                        values = c("", "Men", "Women"),
+                        colwidths = c(1, 2, 2))
+    ft <- align(ft, i = 1, align = "center", part = "header")
+  } else {
+    ft <- set_header_labels(ft, 
+                           Predictor = "Predictor",
+                           beta1 = "β", 
+                           se1 = "SE")
+  }
+  
+  ft <- theme_apa(ft)
+  ft <- align(ft, align = "center", part = "all")
+  ft <- align(ft, j = 1, align = "left", part = "body")
+  ft <- add_footer_lines(ft, note_text)
+  ft <- italic(ft, part = "footer")
+  ft <- autofit(ft)
+  
+  return(ft)
+}
 
+appendix_men_women <- apa_table(m4_speed, m4_speed_women)
+
+save_as_docx(appendix_men_women, path = paste0(output_tables, "/appendixreplicated.docx"))
 ```
 
 #### Experimental graph - combining male and female outputs of the education effect

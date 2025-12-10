@@ -4,12 +4,6 @@ format: html
 editor: visual
 ---
 
-## To-do
-
--   Re-do the relative female lfp - check you know both male and female lfp in every case, then calculate, standardise, then interpolate
-
--   Also standardise the educational advantage indicators - think about what it does
-
 ## Initial setup
 
 ```{r packages}

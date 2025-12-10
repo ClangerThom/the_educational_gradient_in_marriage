@@ -12,16 +12,9 @@ editor: visual
 
 Issues with the dataset:
 
--   Lots of people are getting married right at the end of the risk window, I feel like that's something wrong with the conditions for the event.
-
-<!-- -->
-
 -   A new unique identifier is needed, since respid from Czechia round 2 overlaps with respids of Estonia and Italy round 2
-
     -   Solved for now by generating a new respid based on rownumber
-
 -   Kazakhstan is disappearing despite officially being in harmonized_histories_I
-
     -   IT'S MISCODED - the iso3n code in the file 860 is for Uzbekistan, not Kazakhstan, it should be 398
 
 ## Initial setup
